@@ -9,4 +9,4 @@ test_basic
 - test some basic (levelled) operations like addition, multiplication and negation (sign flip)
 
 test_ewma 
-- iterates the ewma process for N steps taking input from a swatooth (triangle) wave function
+- iterates the ewma process for N steps taking input from a sawtooth (triangle) wave function
