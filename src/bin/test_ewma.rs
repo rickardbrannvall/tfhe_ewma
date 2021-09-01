@@ -3,8 +3,7 @@ use concrete::*;
 
 fn main() -> Result<(), CryptoAPIError> {
 
-    let path = "device/keys80x1024_64";
-    //let path = "device/keys80x1024_53";
+    let path = "keys";
     
     println!("loading LWE sk 0... \n");
     let sk0_LWE_path = format!("{}/sk0_LWE.json",path);
@@ -13,54 +12,47 @@ fn main() -> Result<(), CryptoAPIError> {
     println!("loading LWE sk 1... \n");
     let sk1_LWE_path = format!("{}/sk1_LWE.json",path);
     let sk1 = LWESecretKey::load(&sk1_LWE_path).unwrap();    
+
+    let m: Vec<f64> = vec![2.54]; // initial value for moving average process
+    println!("ewma at t=0 {:?}\n", m);
+    
+    let mut x = 0.0; //: Vec<f64> = vec![0.0]; // initial value for data generating process
+    println!("data at t=0 {:?}\n", x);
     
     // create an encoder
-    let enc = Encoder::new(0., 10., 6, 1)?;
+    let enc = Encoder::new(0., 10., 8, 1)?;
 
-    let m0: Vec<f64> = vec![2.54];
-    println!("plaintext value {:?}\n", m0);
-    
-    let mut c0 = VectorLWE::encode_encrypt(&sk0, &m0, &enc)?;  
-    println!("encrypted value {:?}", c0.decrypt_decode(&sk0).unwrap());
-    c0.pp();
-    
-    println!("loading BSK 0... \n");
+    let mut m0 = VectorLWE::encode_encrypt(&sk0, &m, &enc)?;  
+    println!("ewma* {:?}", m0.decrypt_decode(&sk0).unwrap());
+    m0.pp();
+
+    println!("loading BSK 01... \n");
     let bsk01_path = format!("{}/bsk01_LWE.json",path);
     let bsk01 = LWEBSK::load(&bsk01_path);
-    
-    println!("loading BSK 1... \n");
-    let bsk10_path = format!("{}/bsk10_LWE.json",path);
-    let bsk10 = LWEBSK::load(&bsk10_path);
 
-    let enc_out = Encoder::new(0., 10., 6, 1)?;
-    let c1 = c0.bootstrap_nth_with_function(&bsk01, |x| 1.0 * x, &enc_out,0)?;
-    println!("bootstrap mul {:?}", c1.decrypt_decode(&sk1).unwrap());
-    c1.pp();   
-
-    let m1: Vec<f64> = vec![2.54];
-    let x0 = VectorLWE::encode_encrypt(&sk0, &m1, &enc)?;
-    let x1 = VectorLWE::encode_encrypt(&sk1, &m1, &enc)?;
+    println!("loading KSK 10... \n");
+    let ksk10_path = format!("{}/ksk10_LWE.json",path);
+    let ksk10 = LWEKSK::load(&ksk10_path);    
     
-    for i in 1..=10 {
-        println!("round {}\n",i);
+    for i in 0..10 {
+        println!("t={}, x={}\n", i, x);
         
-        let a1 = x0.bootstrap_nth_with_function(&bsk01, |x| 0.5 * x, &enc_out,0)?;
-        let b1 = c0.bootstrap_nth_with_function(&bsk01, |x| 0.5 * x, &enc_out,0)?;
-        let c1 = a1.add_with_new_min(&b1, &vec![0.0])?; 
-        println!("average one {:?}", c1.decrypt_decode(&sk1).unwrap());
-        a1.pp();   
-        b1.pp();   
-        c1.pp();   
-
-        let a0 = x1.bootstrap_nth_with_function(&bsk10, |x| 0.5 * x, &enc_out,0)?;
-        let b0 = c1.bootstrap_nth_with_function(&bsk10, |x| 0.5 * x, &enc_out,0)?;
-        c0 = a0.add_with_new_min(&b0, &vec![0.0])?; 
-        println!("average two {:?}", c0.decrypt_decode(&sk0).unwrap());
-        a0.pp();   
-        b0.pp();   
-        c0.pp();     
+        let x0 = VectorLWE::encode_encrypt(&sk0, &vec![x], &enc)?;  
+        println!("data* {:?}", x0.decrypt_decode(&sk0).unwrap());
+        x0.pp();
+        
+        let x1 = x0.bootstrap_nth_with_function(&bsk01, |x| 0.5 * x, &enc,0)?;
+        x1.pp();
+        let mut m1 = m0.bootstrap_nth_with_function(&bsk01, |x| 0.5 * x, &enc,0)?;
+        m1.pp();
+        
+        m1.add_with_new_min_inplace(&x1, &vec![0.0])?; 
+        println!("ewma* {:?}", m1.decrypt_decode(&sk1).unwrap());
+        m1.pp();
+        
+        m0 = m1.keyswitch(&ksk10).unwrap();
+        x = (x + 1.0)%10.;
     }
-   
     
     Ok(())
 }
