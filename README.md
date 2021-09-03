@@ -1,6 +1,6 @@
 # tfhe_ewma
 
-Test out bootstrapped operations for stateful process by implementing Exponentially Weighted Moving Algorithm (ewma) under homomorphic encryption in the Concrete (TFHE) library for the Rust programming language.  
+Implements Exponentially Weighted Moving Average algorithm (ewma) under homomorphic encryption in the Concrete (TFHE) library for the Rust programming language. This is to demonstrate how to use bootstrapped operations, which are necessary for the EWMA since it is a statefull process.  
 
 create_keys 
 - run this to create secret keys for encryption, key switching and bootstrap (may take several hours)
